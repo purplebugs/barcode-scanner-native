@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Barcode Scanner</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <style>
+      video {
+        width: 100%;
+        border-radius: 12px;
+      }
+      pre {
+        background: #f4f4f4;
+        padding: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Scan a Puzzle Barcode</h1>
+
+    <pre id="result">Waiting for scan...</pre>
+
+    <video id="video" autoplay playsinline></video>
+
+    <script>
+      const video = document.getElementById("video");
+      const resultEl = document.getElementById("result");
+
+      async function startScanner() {
+        if (!("BarcodeDetector" in window)) {
+          resultEl.textContent = "BarcodeDetector API not supported 😢";
+          return;
+        }
+
+        const barcodeDetector = new BarcodeDetector({
+          formats: ["ean_13", "upc_a"],
+        });
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: "environment" },
+        });
+        video.srcObject = stream;
+
+        const scan = async () => {
+          try {
+            const barcodes = await barcodeDetector.detect(video);
+            if (barcodes.length > 0) {
+              const code = barcodes[0].rawValue;
+              resultEl.textContent = `Barcode: ${code}`;
+              fetch(`/lookup/${code}`)
+                .then((res) => res.json())
+                .then((data) => {
+                  resultEl.textContent = `📦 ${data.title} (${data.brand}) - ${data.pieces} pieces`;
+                })
+                .catch(() => {
+                  resultEl.textContent = `Barcode: ${code} not found`;
+                });
+            }
+          } catch (e) {
+            console.error(e);
+          }
+
+          requestAnimationFrame(scan);
+        };
+
+        scan();
+      }
+
+      startScanner();
+    </script>
+  </body>
+</html>
